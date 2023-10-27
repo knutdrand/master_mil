@@ -21,11 +21,11 @@ class SimpleModel:
         self.logistic_regression = logisitic_regression
 
     def predict(self, x: np.ndarray) -> np.ndarray:
-        return self.logistic_regression.predict(x.max(axis=-1, keepdims=True))
+        return self.logistic_regression.predict(x.max(axis=-2))
 
 
 def naive_train_bag_classifier(training_observations: SimpleObservation) -> Classifier:
-    max_x = np.max(training_observations.x, axis=-1, keepdims=True)
+    max_x = np.max(training_observations.x, axis=-2)
     assert max_x.shape == (len(training_observations), 1)
     model = LogisticRegression()
     model.fit(max_x, training_observations.y)
@@ -59,9 +59,9 @@ class EMModel:
         self.negative_model = negative_model
 
     def predict(self, X):
-        positive_likelihood = self.positive_bag_model.log_prob(X).sum(axis=-1)
-        negative_likelihood = self.negative_model.log_prob(X).sum(axis=-1)
-        return positive_likelihood > negative_likelihood
+        positive_likelihood = self.positive_bag_model.log_prob(X).sum(axis=(-1, -2))
+        negative_likelihood = self.negative_model.log_prob(X).sum(axis=(-1, -2))
+        return positive_likelihood > negative_likelihoodc
 
 
 class NormalDistribution:
