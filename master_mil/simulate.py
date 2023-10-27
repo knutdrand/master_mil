@@ -32,4 +32,5 @@ class SimpleMILDistribution:
         x = np.random.normal(np.where(y[:, None] & z, self.mu_2, self.mu_1),
                              self.sigma)
         assert x.shape == (shape, self.bag_size)
+        #assert np.max(x[y == 0]) < np.max(x[y == 1]), (x[y == 0], x[y == 1])
         return SimpleObservation(x, y)
