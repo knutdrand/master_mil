@@ -33,39 +33,25 @@ def naive_train_bag_classifier(training_observations: SimpleObservation) -> Clas
 
 
 def train_bag_classifier(training_observations: SimpleObservation) -> Classifier:
-    N = NormalDistribution
     negative_bags = training_observations[training_observations.y == 0]
-    mu_0 = np.mean(negative_bags.x)
-    sigma_0 = np.std(negative_bags.x)
+    negative_distribution = NormalDistribution(np.mean(negative_bags.x), np.std(negative_bags.x))
     n_iter = 1000
     positive_bags = training_observations[training_observations.y == 1]
-    witness_rate = 0.5
     X = positive_bags.x
-    mu_1 = np.max(X) # 1#  mu_0+ (np.mean(X)-mu_0) / witness_rate
-
-    sigma_1 = sigma_0.copy()
-    w = witness_rate
-    log_likelihood = -np.inf
+    positive_distribution = NormalDistribution(np.max(X), negative_distribution.sigma)
+    mixture_model = MixtureModel([positive_distribution, negative_distribution], [0.5, 0.5])
     for i in range(n_iter):
-        # print(f'Iteration {i}: mu_1={mu_1}, sigma_1={sigma_1}, w={w}, log_likelihood={log_likelihood}')
-        likelihood_1 = N(mu_1, sigma_1).log_prob(X)
-        likelihood_0 = N(mu_0, sigma_0).log_prob(X)
-        likelihoods = [np.log(w)+likelihood_0, np.log(1-w)+likelihood_1]
-        log_K = np.logaddexp(*likelihoods)
-        p_negative, p_positive = (np.exp(l-log_K) for l in likelihoods)
-        p_positive = p_positive +  1e-10
+        positive_likelihood = positive_distribution.log_prob(X)
+        total_likelihood = mixture_model.log_prob(X)
+        p_positive = np.exp(positive_likelihood-total_likelihood)+1e-10
         factor = np.sum(p_positive)
-        mu_1 = np.sum(p_positive*X)/factor
-        sigma_1 = np.sqrt(np.sum(p_positive*(X-mu_1)**2)/factor)
+        positive_distribution.mu = np.sum(p_positive*X)/factor
+        positive_distribution.sigma = np.sqrt(np.sum(p_positive*(X-positive_distribution.mu)**2)/factor)
         w = np.mean(p_positive)-(1e-10/2)
         w = np.clip(w, 0.00, 1)
-        positive_bag_model = MixtureModel([N(mu_1, sigma_1), N(mu_0, sigma_0)], [w, 1-w])
-        log_likelihood = positive_bag_model.log_prob(X).sum()
-        #assert log_likelihood > prev_log_likelihood, (log_likelihood, prev_log_likelihood)
-        # prev_log_likelihood = log_likelihood
+        mixture_model.weights = [w, 1-w]
+    return EMModel(mixture_model, negative_distribution)
 
-    negative_model = N(mu_0, sigma_0)
-    return EMModel(positive_bag_model, negative_model)
 
 class EMModel:
     def __init__(self, positive_bag_model, negative_model):
@@ -88,6 +74,7 @@ class NormalDistribution:
 
     def log_prob(self, X):
         return scipy.stats.norm.logpdf(X, self.mu, self.sigma)
+
 
 class MixtureModel:
     def __init__(self, distributions, weights):
