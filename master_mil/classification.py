@@ -33,6 +33,22 @@ def naive_train_bag_classifier(training_observations: SimpleObservation) -> Clas
 
 
 def train_bag_classifier(training_observations: SimpleObservation) -> Classifier:
+    '''
+    Train a bag classifier using the EM algorithm. Use the negative
+    bags to estimate the distribution of negative instances,
+    and the positive bags to estimate the distribution of
+    the mixure model. Gives a prediction model that takes the argmax
+    of the negative model and the mixture model log probabilities.
+
+    Parameters
+    ----------
+    training_observations
+
+    Returns
+    -------
+    A prediction model
+
+    '''
     negative_bags = training_observations[training_observations.y == 0]
     negative_distribution = NormalDistribution(np.mean(negative_bags.x), np.std(negative_bags.x))
     n_iter = 1000
@@ -41,16 +57,20 @@ def train_bag_classifier(training_observations: SimpleObservation) -> Classifier
     positive_distribution = NormalDistribution(np.max(X), negative_distribution.sigma)
     mixture_model = MixtureModel([positive_distribution, negative_distribution], [0.5, 0.5])
     for i in range(n_iter):
-        positive_likelihood = positive_distribution.log_prob(X)
-        total_likelihood = mixture_model.log_prob(X)
-        p_positive = np.exp(positive_likelihood-total_likelihood)+1e-10
-        factor = np.sum(p_positive)
-        positive_distribution.mu = np.sum(p_positive*X)/factor
-        positive_distribution.sigma = np.sqrt(np.sum(p_positive*(X-positive_distribution.mu)**2)/factor)
-        w = np.mean(p_positive)-(1e-10/2)
-        w = np.clip(w, 0.00, 1)
-        mixture_model.weights = [w, 1-w]
+        update_mixture_model(X, mixture_model, positive_distribution)
     return EMModel(mixture_model, negative_distribution)
+
+
+def update_mixture_model(X, mixture_model, positive_distribution):
+    positive_likelihood = positive_distribution.log_prob(X)
+    total_likelihood = mixture_model.log_prob(X)
+    p_positive = np.exp(positive_likelihood - total_likelihood) + 1e-10
+    factor = np.sum(p_positive)
+    positive_distribution.mu = np.sum(p_positive * X) / factor
+    positive_distribution.sigma = np.sqrt(np.sum(p_positive * (X - positive_distribution.mu) ** 2) / factor)
+    w = np.mean(p_positive) - (1e-10 / 2)
+    w = np.clip(w, 0.00, 1)
+    mixture_model.weights = [w, 1 - w]
 
 
 class EMModel:
@@ -88,7 +108,3 @@ class MixtureModel:
 def evaluate_model(model: Classifier, test_observations: SimpleObservation) -> float:
     predictions = model.predict(test_observations.x)
     return np.mean(predictions == test_observations.y)
-
-
-
-
