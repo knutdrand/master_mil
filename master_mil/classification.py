@@ -61,7 +61,7 @@ class EMModel:
     def predict(self, X):
         positive_likelihood = self.positive_bag_model.log_prob(X).sum(axis=(-1, -2))
         negative_likelihood = self.negative_model.log_prob(X).sum(axis=(-1, -2))
-        return positive_likelihood > negative_likelihoodc
+        return positive_likelihood > negative_likelihood
 
 
 class NormalDistribution:
